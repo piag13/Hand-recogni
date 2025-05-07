@@ -49,7 +49,7 @@ model.fit(X_train, y_train, batch_size = 32, epochs = 5, verbose = 2)
 model.evaluate(X_test, y_test, batch_size = 32, verbose = 2)
 
 
-predictions = model.predict(X_test[19])  # Predict the first 5 test samples
+predictions = model.predict(X_test[19].reshape(1, -1))  # Predict the first 5 test samples
 predicted_classes = np.argmax(predictions, axis=1)  # Get the class with the highest probability
 
 print("Predicted classes:", predicted_classes)
@@ -58,7 +58,7 @@ print("Actual classes:", y_test[19])
 import matplotlib.pyplot as plt
 
 # Show the 20th image in the training set
-plt.imshow(X_train[19].reshape(28, 28), cmap="gray")  # Reshape back to 28x28 for visualization
-plt.title(f"Label: {y_train[19]}")
+plt.imshow(X_test[19].reshape(28, 28), cmap="gray")  # Reshape back to 28x28 for visualization
+plt.title(f"Label: {y_test[19]}")
 plt.axis("off")
 plt.show()
