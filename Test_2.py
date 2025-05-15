@@ -11,14 +11,17 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_hands = mp.solutions.hands
 
 # Load the trained model with the properly defined focal_loss
-model = load_model('model.h5')
+model = load_model('model_hand.h5')
 actions = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 sequence_length = 30
 frames_buffer = []
+results_list = []
 
 cap = cv2.VideoCapture(0)
 success, image = cap.read()
 h, w, c = image.shape
+last_time = 0
+crop_interval = 5
 
 
 def extract_keypoints(results):
@@ -26,6 +29,20 @@ def extract_keypoints(results):
         hand = results.multi_hand_landmarks[0]
         return np.array([[res.x, res.y, res.z] for res in hand.landmark]).flatten()
     return np.zeros(63)
+
+
+def predict_gesture(image):
+    # Preprocess the image
+    img = cv2.resize(image, (224, 224))
+    img = img / 255.0  # Normalize
+    img = np.expand_dims(img, axis=0)
+
+    # Make prediction
+    prediction = model.predict(img, verbose=0)
+    predicted_class = np.argmax(prediction[0])
+    confidence = prediction[0][predicted_class]
+
+    return predicted_class, confidence
 
 
 with mp_hands.Hands(
@@ -47,7 +64,7 @@ with mp_hands.Hands(
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Tính toán bounding box
+                # Calculate bounding box
                 x_max = 0
                 y_max = 0
                 x_min = w
@@ -58,30 +75,46 @@ with mp_hands.Hands(
                     y_max = max(y, y_max)
                     x_min = min(x, x_min)
                     y_min = min(y, y_min)
-                x_min, y_min = max(0, x_min - 20), max(0, y_min - 20)  # Thêm padding
-                x_max, y_max = min(w, x_max + 20), min(h, y_max + 20)  # Thêm padding
 
-                # Cắt và resize ảnh bàn tay
+                # Add padding
+                padding = 20
+                x_min = max(0, x_min - padding)
+                y_min = max(0, y_min - padding)
+                x_max = min(w, x_max + padding)
+                y_max = min(h, y_max + padding)
+
+                # Draw bounding box
+                cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+
+                # Process and predict
                 cropped_img = image[y_min:y_max, x_min:x_max]
                 if cropped_img.size > 0:
-                    cropped_img = cv2.resize(cropped_img, (128, 128))
+                    predicted_class, confidence = predict_gesture(cropped_img)
 
-                    # Predict
-                    img = np.expand_dims(cropped_img, axis=0)
-                    prediction = model.predict(img, verbose=0)
-                    predicted_class = int(np.argmax(prediction[0]))
-                    confidence = float(prediction[0][predicted_class])
-
-                    # Vẽ bounding box
-                    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-
-                    # Hiển thị kết quả trên bounding box
-                    if confidence > 0.7:  # Threshold cho độ tin cậy
+                    if confidence > 0.7:  # Only show high confidence predictions
+                        # Draw prediction above the bounding box
                         result_text = f"{actions[predicted_class]} ({confidence:.2f})"
-                        cv2.putText(image, result_text, (x_min, y_min - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                        # Calculate text position above bounding box
+                        text_x = x_min
+                        text_y = y_min - 10  # 10 pixels above the box
 
-                # Vẽ landmarks
+                        # Make sure text doesn't go off screen
+                        if text_y < 20:
+                            text_y = y_min + 30  # Put text inside box if too close to top
+
+                        # Add background rectangle for text
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.8
+                        thickness = 2
+                        (text_width, text_height), _ = cv2.getTextSize(result_text, font, font_scale, thickness)
+                        cv2.rectangle(image, (text_x, text_y - text_height - 5),
+                                      (text_x + text_width, text_y + 5), (0, 255, 0), -1)
+
+                        # Draw text
+                        cv2.putText(image, result_text, (text_x, text_y),
+                                    font, font_scale, (0, 0, 0), thickness)
+
+                # Draw hand landmarks
                 mp_drawing.draw_landmarks(
                     image,
                     hand_landmarks,
@@ -89,8 +122,9 @@ with mp_hands.Hands(
                     mp_drawing_styles.get_default_hand_landmarks_style(),
                     mp_drawing_styles.get_default_hand_connections_style())
 
+        # Show the frame
         cv2.imshow('MediaPipe Hands', cv2.flip(image, 1))
-        if cv2.waitKey(10) & 0xFF == ord('q'):
+        if cv2.waitKey(5) & 0xFF == ord('q'):
             break
 
 cap.release()

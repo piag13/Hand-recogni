@@ -19,12 +19,11 @@ tf.get_logger().setLevel('ERROR')
 # Define dataset path
 DATA_PATH = os.path.join('data/process_combine_asl_dataset')
 
-actions = [
+actions = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
-]
+}
 
 # Parameters
-IMG_SIZE = 128
 BATCH_SIZE = 32
 EPOCHS = 100
 
@@ -32,6 +31,7 @@ EPOCHS = 100
 def load_dataset(dataset_path):
     images = []
     labels = []
+    IMG_SIZE = 224  # Fixed size for all images
 
     # Check if dataset path exists
     actions = os.listdir(dataset_path)
@@ -50,9 +50,14 @@ def load_dataset(dataset_path):
         for image_name in image_files:
             image_path = os.path.join(action_path, image_name)
             image = cv2.imread(image_path)
-            image = cv2.resize(image, (IMG_SIZE, IMG_SIZE))
-            images.append(image)
-            labels.append(actions.index(action))
+            if image is not None:
+                # Resize image to fixed dimensions
+                image = cv2.resize(image, (IMG_SIZE, IMG_SIZE))
+                images.append(image)
+                labels.append(actions.index(action))
+
+    if not images:
+        raise ValueError("No valid images found in the dataset")
 
     images = np.array(images, dtype='float32') / 255.0
     labels = np.array(labels, dtype='int')
@@ -62,7 +67,6 @@ def load_dataset(dataset_path):
 
 # Load dataset
 X, y = load_dataset(DATA_PATH)
-
 
 if len(X) > 0:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -84,7 +88,7 @@ plt.ylabel("Số mẫu")
 plt.title("Số lượng mẫu trong tập Train")
 
 # plot test data
-plt.subplot(1, 2, 2)
+plt.subplot(1, 2, 1)
 plt.bar(labels_test, counts_test, color='red', alpha=0.7)
 plt.xticks(labels_test, actions, rotation=45)
 plt.xlabel("Hành động")
@@ -131,7 +135,7 @@ callbacks = [
 
 ]
 # Initialize and train the model
-input_shape = (IMG_SIZE, IMG_SIZE, 3)
+input_shape = (224, 224, 3)
 model = cnn_model(input_shape)
 
 print(model.summary())
@@ -147,12 +151,31 @@ history = model.fit(
 )
 
 # Save model
-model.save('model_hand.h5')
+model.save('model.h5')
+np.save('X_test.npy', X_test)
+np.save('y_test.npy', y_test)
+np.save('y_train.npy', y_train)
 
 # Plot training history
+plt.figure(figsize=(12, 4))
+
+# Plot accuracy
+plt.subplot(1, 2, 1)
 plt.plot(history.history['accuracy'], label='Training Accuracy')
 plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
 plt.xlabel('Epochs')
 plt.ylabel('Accuracy')
+plt.title('Model Accuracy')
 plt.legend()
+
+# Plot loss
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Model Loss')
+plt.legend()
+
+plt.tight_layout()
 plt.show()
