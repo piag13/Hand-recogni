@@ -17,7 +17,7 @@ tf.get_logger().setLevel('ERROR')
 # tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 # Define dataset path
-DATA_PATH = os.path.join('data/process_combine_asl_dataset')
+DATA_PATH = os.path.join('data/Dataset')
 
 actions = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
@@ -25,13 +25,13 @@ actions = {
 
 # Parameters
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 30
 
 # Function to load dataset
 def load_dataset(dataset_path):
     images = []
     labels = []
-    IMG_SIZE = 224  # Fixed size for all images
+    IMG_SIZE = 128  # Fixed size for all images
 
     # Check if dataset path exists
     actions = os.listdir(dataset_path)
@@ -96,7 +96,7 @@ plt.ylabel("Số mẫu")
 plt.title("Số lượng mẫu trong tập Test")
 
 # CNN Model
-def cnn_model(input_shape):
+def cnn_model(input_shape = (128, 128, 3)):
     model = Sequential([
         Conv2D(32, (3, 3), padding='same', activation='relu',kernel_regularizer=l2(0.01),  input_shape=input_shape),
         MaxPooling2D((2, 2)),
@@ -135,7 +135,7 @@ callbacks = [
 
 ]
 # Initialize and train the model
-input_shape = (224, 224, 3)
+input_shape = (128, 128, 3)
 model = cnn_model(input_shape)
 
 print(model.summary())

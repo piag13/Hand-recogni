@@ -1,111 +1,87 @@
-# Collect data
 import cv2
-import os
-import mediapipe as mp
-import csv
+import cvzone.HandTrackingModule as htm
 import numpy as np
+import math
+import os
 import time
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-mp_hands = mp.solutions.hands
 
-# create folder data
-DATA_PATH = 'hand_landmark_data'
-DRAWN_IMAGE_PATH = os.path.join(DATA_PATH, 'drawn_images')
-os.makedirs(DATA_PATH, exist_ok=True)
-os.makedirs(DRAWN_IMAGE_PATH, exist_ok=True)
+cap = cv2.VideoCapture(0)
+detector = htm.HandDetector(maxHands=1)
 
-#create csv
-csv_file = os.path.join(DATA_PATH, 'hand_landmarks.csv')
-with open(csv_file, mode='w', newline='') as f:
-    writer = csv.writer(f)
-    # Header gồm nhãn và 21 landmarks (mỗi landmark có x, y, z)
-    header = ['label', 'image_name'] + [f'{i}_{axis}' for i in range(21) for axis in ['x', 'y', 'z']]
-    writer.writerow(header)
+IMG_SIZE = 128
+DATA_DIR = 'data/Dataset'
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
-#running
-def collect_data(label):
-    cap = cv2.VideoCapture(0)
-    success, image = cap.read()
-    h, w, c = image.shape
-    last_time = 0
-    crop_interval = 1
-    image_count = 0
-    with mp_hands.Hands(
-        model_complexity=0,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as hands:
-      while cap.isOpened():
+number_of_classes = 10
+dataset_size = 400
+
+for j in range(number_of_classes):
+    class_dir = os.path.join(DATA_DIR, str(j))
+    if not os.path.exists(class_dir):
+        os.makedirs(class_dir)
+
+    print(f"\n=== Collecting data for class {j} ===")
+    print("Press 's' to start saving images.")
+
+    counter = 0
+    start_collection = False
+
+    while True:
         success, image = cap.read()
         if not success:
-          print("Ignoring empty camera frame.")
-          # If loading a video, use 'break' instead of 'continue'.
-          continue
+            continue
 
-        # To improve performance, optionally mark the image as not writeable to
-        # pass by reference.
-        image.flags.writeable = False
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = hands.process(image)
+        image = cv2.flip(image, 1)  # Flip camera for natural view
+        hands, image = detector.findHands(image)
 
-        # Prepare black background
-        black_img = np.zeros((h, w, 3), dtype=np.uint8)
+        if hands:
+            hand = hands[0]
+            x, y, w, h = hand['bbox']
 
-        image.flags.writeable = True
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            Img_white = np.ones((IMG_SIZE, IMG_SIZE, 3), np.uint8) * 255  # White background
 
-        current_time = time.time()
-        if results.multi_hand_landmarks:
-          for hand_landmarks in results.multi_hand_landmarks:
-              x_max = 0
-              y_max = 0
-              x_min = w
-              y_min = h
-              landmarks = []
+            # Crop with margin
+            x1, y1 = max(x - 20, 0), max(y - 20, 0)
+            x2, y2 = x + w + 20, y + h + 20
+            crop_image = image[y1:y2, x1:x2]
 
-              for lm in hand_landmarks.landmark:
-                  x, y = int(lm.x * w), int(lm.y * h)
-                  x_max = max(x, x_max)
-                  y_max = max(y, y_max)
-                  x_min = min(x, x_min)
-                  y_min = min(y, y_min)
-                  landmarks += [x, y]
+            if crop_image.size == 0:
+                continue
 
-              x_min, y_min = max(0, x_min), max(0, y_min)
-              x_max, y_max = min(w, x_max), min(h, y_max)
+            aspectRatio = h / w
+            if aspectRatio > 1:
+                k = IMG_SIZE / h
+                wCal = math.floor(k * w)
+                resized_image = cv2.resize(crop_image, (wCal, IMG_SIZE))
+                wGap = math.floor((IMG_SIZE - wCal) / 2)
+                Img_white[:, wGap:wCal + wGap] = resized_image
+            else:
+                k = IMG_SIZE / w
+                hCal = math.floor(k * h)
+                resized_image = cv2.resize(crop_image, (IMG_SIZE, hCal))
+                hGap = math.floor((IMG_SIZE - hCal) / 2)
+                Img_white[hGap:hCal + hGap, :] = resized_image
 
-              #draw landmarks
-              mp_drawing.draw_landmarks(
-                  black_img,
-                  hand_landmarks,
-                  mp_hands.HAND_CONNECTIONS,
-                  mp_drawing_styles.get_default_hand_landmarks_style(),
-                  mp_drawing_styles.get_default_hand_connections_style())
+            if start_collection and counter < dataset_size:
+                file_path = os.path.join(class_dir, f'{counter}.jpg')
+                cv2.imwrite(file_path, Img_white)
+                counter += 1
+                print(f"Saved {file_path}")
 
-              #Crop bounding box every 1 seconds
-              if (current_time - last_time) >= crop_interval:
-                  cropped_img = black_img[y_min:y_max, x_min:x_max]
-                  last_time = current_time
+            cv2.imshow("Cropped Hand", Img_white)
 
-                  #save data
-                  drawn_image_name = f'{label}_{image_count}.png'
-                  drawn_image_path = os.path.join(DRAWN_IMAGE_PATH, drawn_image_name)
-                  cv2.imwrite(drawn_image_path, cropped_img)
+        cv2.putText(image, f'Class {j} - Images Saved: {counter}', (10, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0) if start_collection else (0, 0, 255), 2)
 
-                  #save data to csv
-                  with open(csv_file, mode='a', newline='') as f:
-                      writer = csv.writer(f)
-                      writer.writerow([label, drawn_image_name] + landmarks)
+        cv2.imshow("Webcam", image)
 
-                  image_count += 1
+        key = cv2.waitKey(1)
+        if key == ord('s'):
+            start_collection = True
+        elif key == ord('q') or counter >= dataset_size:
+            break
 
-        # Flip the image horizontally for a selfie-view display.
-        cv2.imshow('Hand data collection', cv2.flip(black_img, 1))
-        if cv2.waitKey(10) & 0xFF == ord('q'):
-          break
-    cap.release()
-    cv2.destroyAllWindows()
-
-if __name__ == '__main__':
-    label = input('Nhập nhãn cho dữ liệu: ')
-    collect_data(label)
+print("\nHoàn thành việc thu thập dữ liệu!")
+cap.release()
+cv2.destroyAllWindows()
