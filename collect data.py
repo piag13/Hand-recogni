@@ -8,13 +8,13 @@ import time
 cap = cv2.VideoCapture(0)
 detector = htm.HandDetector(maxHands=1)
 
-IMG_SIZE = 128
+IMG_SIZE = 240
 DATA_DIR = 'data/Dataset'
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 number_of_classes = 10
-dataset_size = 400
+dataset_size = 600
 
 for j in range(number_of_classes):
     class_dir = os.path.join(DATA_DIR, str(j))
