@@ -1,0 +1,13 @@
+Model:
+
+
+
+Training:
+  lr: 0.001
+  batch_size: 32
+  image_size: 240
+  epochs: 100 
+  DATA_PATH: 'dataset/dataset'
+  Device: 'cuda'
+  Num_classes: 10
+  patience: 10
