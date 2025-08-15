@@ -1,12 +1,32 @@
 # Cách dùng và cài đặt dự án
 
-## Bước 1: thu thập dataset
-chạy Create_data.py (nếu muốn tự thử nghiệm, không thì có thể chạy test luôn)
+## Tải git:
 
-## Bước 2: Train mô hình
-chạy Train_model 
--> lưu mô hình vào model.pth
--> file x_test.npy, y_test.npy, y_train.npy
+### Cho linux:
+```bash
+apt-get install git
+```
+### Cho windows: 
+https://git-scm.com/downloads/win
 
-## Bước 3: Thử nghiệm
-chạy file test.py
+## Cách sử dụng dự án:
+
+### Bước 1: Clone dự án
+```bash
+git clone https://github.com/piag13/Hand-recogni
+cd Hand-recogni
+```
+### Bước 2: Tạo dataset
+Chạy file Create_dataset.py
+```bash
+python dataset/Create_dataset.py
+```
+### Bước 3: Train Model
+Chạy file Train.py để train model (khuyến khích dùng GPU)
+```bash
+python src/Train.py
+```
+### Bước 4: Chạy chương trình
+```bash
+python src/main.py
+```
