@@ -1,9 +1,0 @@
-torch==2.7.1
-torchvision==0.22.1
-python==3.9.17
-cvzone
-numpy==1.26.3
-mediapipe
-opencv-python==4.11.0.86
-seaborn==0.13.2
-scikit-learn
