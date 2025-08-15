@@ -1,7 +1,7 @@
 import torch.nn as nn
 import yaml
 
-with open("config.yaml", "r") as file:
+with open("src/config/config.yaml", "r") as file:
     config = yaml.safe_load(file) 
 
 
@@ -32,7 +32,7 @@ class CNNModel(nn.Module):
             nn.Linear(240, 64),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(64, config['Num_classes'])
+            nn.Linear(64, config["Training"]["Num_classes"])
         )
 
     def forward(self, x):
